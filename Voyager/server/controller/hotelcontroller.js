@@ -35,7 +35,7 @@ exports.createHotel = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields: place, name, or price." });
     }
 
-    const address = { city, streetName };
+    const address = [{ type: "main", city, streetname: streetName }];
     const parsedAmenities = amenities ? safeJSONParse(amenities, []) : [];
     const parsedRoomTypes = roomTypes ? safeJSONParse(roomTypes, []) : [];
 

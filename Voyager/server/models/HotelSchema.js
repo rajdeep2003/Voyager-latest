@@ -16,13 +16,11 @@ const hotelSchema = new mongoose.Schema({
     ref: "HotelOwner",
     
   },
-  address: [
-    {
-      type:String,
-      city:String,
-      streetname:String
-    }
-  ],
+  address: {
+    type: { type: String, default: "main" },
+    city: String,
+    streetname: String
+  },
   price: {
     type: Number,
     required: true,
