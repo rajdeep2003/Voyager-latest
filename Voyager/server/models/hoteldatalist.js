@@ -6,7 +6,7 @@ const hotels = [
     price: 299,
     rating: 4.8,
     image:
-      "https://plus.unsplash.com/premium_photo-1661963123153-5471a95b7042?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTh8fGdyYW5kJTIwcGxhemElMjBob3RlbHxlbnwwfHwwfHx8MA%3D%3D",
+      "https://plus.unsplash.com/premium  _photo-1661963123153-5471a95b7042?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTh8fGdyYW5kJTIwcGxhemElMjBob3RlbHxlbnwwfHwwfHx8MA%3D%3D",
     images: [
       "https://plus.unsplash.com/premium_photo-1661963123153-5471a95b7042?w=600&auto=format&fit=crop&q=60",
       "https://images.unsplash.com/photo-1653280675477-878425ecb5f9?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTF8fGdyYW5kcGxhemElMjBob3RlbHxlbnwwfHwwfHx8MA%3D%3D",
