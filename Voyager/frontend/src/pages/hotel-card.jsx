@@ -39,8 +39,22 @@ export function HotelCard({ hotel, onBookNow }) {
       </div>
       <div className="p-4 border-t flex items-center justify-between">
         <div>
-          <span className="text-lg font-bold">Rs{hotel.price}</span>
-          <span className="text-sm text-gray-500"> / night</span>
+          {hotel.roomTypes && hotel.roomTypes.length > 0 ? (
+            <div>
+              <span className="text-lg font-bold">
+                Rs{Math.min(...hotel.roomTypes.map(rt => rt.price))}
+              </span>
+              {hotel.roomTypes.length > 1 && (
+                <span className="text-lg font-bold"> - Rs{Math.max(...hotel.roomTypes.map(rt => rt.price))}</span>
+              )}
+              <span className="text-sm text-gray-500"> / night</span>
+            </div>
+          ) : (
+            <div>
+              <span className="text-lg font-bold">Rs{hotel.price}</span>
+              <span className="text-sm text-gray-500"> / night</span>
+            </div>
+          )}
         </div>
         <button onClick={onBookNow} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
           Book Now

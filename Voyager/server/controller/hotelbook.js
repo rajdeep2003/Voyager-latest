@@ -2,10 +2,10 @@ const hotels = require('../models/hoteldatalist');
 const Razorpay = require('razorpay');
 const crypto = require("crypto");
 
-const instance = new Razorpay({
+const instance = new Razorpay({  
     key_id: "rzp_test_wb29ohYja8YQoG",
     key_secret: "0BlelHv2GYnSWQRtR2fqDd63"
-});
+}); 
 
 // Get all hotels
 const getAllHotels = (req, res) => {

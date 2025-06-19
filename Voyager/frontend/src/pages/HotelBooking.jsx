@@ -2,10 +2,10 @@
 import { useState, useRef, useEffect } from "react";
 import { HotelCard } from "./hotel-card";
 import GameSelector from "./GameSelector";
-import { MapPin, Calendar, Users } from "./icons"; 
+import { MapPin, Calendar, Users } from "./icons";
 
 export default function HotelBooking() {
-  const [hotels, setHotels] = useState([]); 
+  const [hotels, setHotels] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [priceRange, setPriceRange] = useState([200, 400]);
   const [selectedHotel, setSelectedHotel] = useState(null);
@@ -17,34 +17,72 @@ export default function HotelBooking() {
   const [discount, setDiscount] = useState(null);
   const [showGameSelector, setShowGameSelector] = useState(false);
   const [roomType, setRoomType] = useState("standard");
+  const [sidebarRooms, setSidebarRooms] = useState(1);
   const gameSelectorRef = useRef(null);
 
   // Fetch hotels on component mount
   useEffect(() => {
     const fetchHotels = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/hotels');
+        const response = await fetch("http://localhost:5000/api/hotels");
         const data = await response.json();
         setHotels(data);
       } catch (error) {
-        console.error('Error fetching hotels:', error);
+        console.error("Error fetching hotels:", error);
       }
     };
     fetchHotels();
   }, []);
+
+  // Sync sidebarRooms and rooms
+  useEffect(() => {
+    setRooms(sidebarRooms);
+  }, [sidebarRooms]);
 
   // Filter hotels based on search query and price range
   const filteredHotels = hotels.filter((hotel) => {
     const matchesSearch =
       hotel.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       hotel.location.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPrice = hotel.price >= priceRange[0] && hotel.price <= priceRange[1];
-    return matchesSearch && matchesPrice;
+
+    const hasRoomInPriceRange = hotel.roomTypes.some(
+      (rt) => rt.price >= priceRange[0] && rt.price <= priceRange[1]
+    );
+
+    const desiredCheckIn = new Date(checkInDate);
+    const desiredCheckOut = new Date(checkOutDate);
+
+    const matchingRooms = hotel.bookingstatus.filter((room) => {
+      if (room.roomType.toLowerCase() !== roomType.toLowerCase()) return false;
+
+      if (!room.bookingId) return true;
+
+      const roomIn = new Date(room.checkIn);
+      const roomOut = new Date(room.checkOut);
+
+      const noOverlap = desiredCheckOut <= roomIn || desiredCheckIn >= roomOut;
+
+      return noOverlap;
+    });
+
+    const hasEnoughAvailableRooms =
+      !checkInDate || !checkOutDate || !roomType || !sidebarRooms
+        ? true
+        : matchingRooms.length >= sidebarRooms;
+
+    return matchesSearch && hasRoomInPriceRange && hasEnoughAvailableRooms;
   });
 
   useEffect(() => {
     if (selectedHotel) {
+      // Set main image
       setMainImage(selectedHotel.images?.[0] || null);
+
+      // Set default room type
+      const defaultType = selectedHotel.roomTypes.find(
+        (rt) => rt.available > 0
+      );
+      if (defaultType) setRoomType(defaultType.type);
     }
   }, [selectedHotel]);
 
@@ -59,8 +97,10 @@ export default function HotelBooking() {
 
   const getBasePrice = () => {
     if (!selectedHotel) return 0;
-    const selectedRoomType = selectedHotel.roomTypes.find(rt => rt.type.toLowerCase() === roomType.toLowerCase());
-    return selectedRoomType ? selectedRoomType.price : selectedHotel.price;
+    const selectedRoomType = selectedHotel.roomTypes.find(
+      (rt) => rt.type.toLowerCase() === roomType.toLowerCase()
+    );
+    return selectedRoomType ? selectedRoomType.price : 0;
   };
 
   const calculateTotalPrice = () => {
@@ -81,9 +121,11 @@ export default function HotelBooking() {
     setMainImage(hotel.images?.[0] || null);
     setShowGameSelector(false);
     setDiscount(null);
-    
+
     // Set initial room type to the first available room type
-    const firstAvailableRoomType = hotel.roomTypes.find(rt => rt.available > 0);
+    const firstAvailableRoomType = hotel.roomTypes.find(
+      (rt) => rt.available > 0
+    );
     if (firstAvailableRoomType) {
       setRoomType(firstAvailableRoomType.type);
     }
@@ -98,7 +140,10 @@ export default function HotelBooking() {
 
   const handleDiscountClick = () => {
     setShowGameSelector(true);
-    setTimeout(() => gameSelectorRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    setTimeout(
+      () => gameSelectorRef.current?.scrollIntoView({ behavior: "smooth" }),
+      100
+    );
   };
 
   useEffect(() => {
@@ -131,7 +176,9 @@ export default function HotelBooking() {
               alt={`Thumbnail ${idx + 1}`}
               onClick={() => setMainImage(img)}
               className={`h-20 w-32 flex-shrink-0 cursor-pointer rounded-md object-cover ring-2 transition-all hover:ring-blue-500 ${
-                img === mainImage ? "ring-blue-600 scale-105" : "ring-transparent"
+                img === mainImage
+                  ? "ring-blue-600 scale-105"
+                  : "ring-transparent"
               }`}
             />
           ))}
@@ -142,8 +189,22 @@ export default function HotelBooking() {
 
   const checkRoomAvailability = () => {
     if (!selectedHotel) return false;
-    const selectedRoom = selectedHotel.roomTypes.find(rt => rt.type.toLowerCase() === roomType.toLowerCase());
-    return selectedRoom && selectedRoom.available >= rooms;
+
+    const desiredCheckIn = new Date(checkInDate);
+    const desiredCheckOut = new Date(checkOutDate);
+
+    const availableRooms = selectedHotel.bookingstatus.filter((room) => {
+      if (room.roomType.toLowerCase() !== roomType.toLowerCase()) return false;
+
+      if (!room.bookingId) return true;
+
+      const roomIn = new Date(room.checkIn);
+      const roomOut = new Date(room.checkOut);
+
+      return desiredCheckOut <= roomIn || desiredCheckIn >= roomOut;
+    });
+
+    return availableRooms.length >= rooms;
   };
 
   const handleBooking = () => {
@@ -161,7 +222,10 @@ export default function HotelBooking() {
     const res = await fetch("http://localhost:5000/api/orders/create-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hotelId: hotel.id, amount: calculateFinalPrice() }),
+      body: JSON.stringify({
+        hotelId: hotel.id,
+        amount: calculateFinalPrice(),
+      }),
     });
 
     const data = await res.json();
@@ -183,14 +247,17 @@ export default function HotelBooking() {
         response.razorpay_signature
       */
 
-        //if payment succeds this is called by razorpay
+      //if payment succeds this is called by razorpay
       handler: async function (response) {
         // 3. Verify the payment
-        const verifyRes = await fetch("http://localhost:5000/api/orders/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(response),
-        });
+        const verifyRes = await fetch(
+          "http://localhost:5000/api/orders/verify",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(response),
+          }
+        );
 
         const verifyData = await verifyRes.json();
 
@@ -207,10 +274,6 @@ export default function HotelBooking() {
     rzp.open();
   }
 
-
- 
-
-
   return (
     <div className="bg-blue-50 min-h-screen mt-10 p-10">
       <div className="container mx-auto py-6 space-y-8">
@@ -219,7 +282,8 @@ export default function HotelBooking() {
             Find Your Perfect Stay
           </h1>
           <p className="rounded-lg bg-blue-200 py-2 text-black">
-            Search for hotels, compare prices, and book your ideal accommodation.
+            Search for hotels, compare prices, and book your ideal
+            accommodation.
           </p>
         </header>
 
@@ -256,15 +320,28 @@ export default function HotelBooking() {
               </div>
 
               <div className="space-y-2">
-                <h3 className="font-medium">Guests</h3>
+                <h3 className="font-medium">Room Type</h3>
                 <select
                   className="w-full rounded-md border px-3 py-2"
-                  value={guests}
-                  onChange={(e) => setGuests(e.target.value)}
+                  value={roomType}
+                  onChange={(e) => setRoomType(e.target.value)}
+                >
+                  <option value="standard">Standard</option>
+                  <option value="deluxe">Deluxe</option>
+                  <option value="suite">Suite</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-medium">Rooms Required</h3>
+                <select
+                  className="w-full rounded-md border px-3 py-2"
+                  value={sidebarRooms || 1}
+                  onChange={(e) => setSidebarRooms(Number(e.target.value))}
                 >
                   {[1, 2, 3, 4, 5].map((n) => (
                     <option key={n} value={n}>
-                      {n} {n === 1 ? "Guest" : "Guests"}
+                      {n} {n === 1 ? "Room" : "Rooms"}
                     </option>
                   ))}
                 </select>
@@ -284,7 +361,10 @@ export default function HotelBooking() {
                   step="10"
                   value={priceRange[1]}
                   onChange={(e) =>
-                    setPriceRange([priceRange[0], Number.parseInt(e.target.value)])
+                    setPriceRange([
+                      priceRange[0],
+                      Number.parseInt(e.target.value),
+                    ])
                   }
                   className="w-full"
                 />
@@ -295,7 +375,10 @@ export default function HotelBooking() {
                   step="10"
                   value={priceRange[0]}
                   onChange={(e) =>
-                    setPriceRange([Number.parseInt(e.target.value), priceRange[1]])
+                    setPriceRange([
+                      Number.parseInt(e.target.value),
+                      priceRange[1],
+                    ])
                   }
                   className="w-full"
                 />
@@ -330,9 +413,9 @@ export default function HotelBooking() {
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <MapPin className="h-4 w-4" />
                       <span>{selectedHotel.location}</span>
-                      <a 
-                        href={getGoogleMapsLink(selectedHotel)} 
-                        target="_blank" 
+                      <a
+                        href={getGoogleMapsLink(selectedHotel)}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline flex items-center gap-1"
                       >
@@ -347,21 +430,69 @@ export default function HotelBooking() {
 
                   <div className="space-y-4 p-4">
                     <div>
-                      <label className="block text-sm font-medium">Room Type</label>
+                      <label className="block text-sm font-medium">
+                        Room Type
+                      </label>
                       <select
                         className="mt-1 w-full rounded-md border p-2"
                         value={roomType}
                         onChange={(e) => setRoomType(e.target.value)}
                       >
-                        {selectedHotel.roomTypes.map((rt) => (
-                          <option key={rt.type} value={rt.type}>
-                            {rt.type} (Rs{rt.price}/night) - {rt.available} rooms left
-                          </option>
-                        ))}
+                        {selectedHotel.roomTypes.map((rt) => {
+                          const matchingRooms =
+                            selectedHotel.bookingstatus.filter((room) => {
+                              if (
+                                room.roomType.toLowerCase() !==
+                                rt.type.toLowerCase()
+                              )
+                                return false;
+
+                              if (!room.bookingId) return true;
+
+                              const roomIn = new Date(room.checkIn);
+                              const roomOut = new Date(room.checkOut);
+                              const desiredCheckInDate = new Date(checkInDate);
+                              const desiredCheckOutDate = new Date(
+                                checkOutDate
+                              );
+
+                              const noOverlap =
+                                desiredCheckOutDate <= roomIn ||
+                                desiredCheckInDate >= roomOut;
+
+                              console.log(`\nRoom ID: ${room.roomId}`);
+                              console.log(`Room Type: ${room.roomType}`);
+                              console.log(
+                                `Booking Range: ${room.checkIn} → ${room.checkOut}`
+                              );
+                              console.log(
+                                `Desired Range: ${checkInDate} → ${checkOutDate}`
+                              );
+                              console.log(
+                                `Overlaps: ${!(
+                                  desiredCheckOutDate <= roomIn ||
+                                  desiredCheckInDate >= roomOut
+                                )}`
+                              );
+
+                              return noOverlap;
+                            });
+
+                          const roomsLeft = matchingRooms.length;
+
+                          return (
+                            <option key={rt.type} value={rt.type}>
+                              {rt.type} (Rs{rt.price}/night) - {roomsLeft} room
+                              {roomsLeft === 1 ? "" : "s"} left
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
-                    
-                    {selectedHotel.roomTypes.find(rt => rt.type.toLowerCase() === roomType.toLowerCase())?.available <= 2 && (
+
+                    {selectedHotel.roomTypes.find(
+                      (rt) => rt.type.toLowerCase() === roomType.toLowerCase()
+                    )?.available <= 2 && (
                       <div className="text-red-500 text-sm">
                         ⚠️ Only a few rooms left at this rate!
                       </div>
@@ -369,7 +500,9 @@ export default function HotelBooking() {
 
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <label className="mb-1 block font-medium">Check‑in</label>
+                        <label className="mb-1 block font-medium">
+                          Check‑in
+                        </label>
                         <input
                           type="date"
                           className="w-full rounded-md border px-3 py-2"
@@ -378,7 +511,9 @@ export default function HotelBooking() {
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block font-medium">Check‑out</label>
+                        <label className="mb-1 block font-medium">
+                          Check‑out
+                        </label>
                         <input
                           type="date"
                           className="w-full rounded-md border px-3 py-2"
@@ -389,22 +524,58 @@ export default function HotelBooking() {
                     </div>
 
                     <div>
-                      <label className="mb-1 block font-medium">Number of Rooms</label>
-                      <select
-                        className="w-full rounded-md border px-3 py-2"
-                        value={rooms}
-                        onChange={(e) => setRooms(Number(e.target.value))}
-                      >
-                        {[1, 2, 3, 4].map((n) => (
-                          <option key={n} value={n}>
-                            {n} {n === 1 ? "Room" : "Rooms"}
-                          </option>
-                        ))}
-                      </select>
+                      <label className="mb-1 block font-medium">
+                        Number of Rooms
+                      </label>
+                      {(() => {
+                        const matchingRooms =
+                          selectedHotel.bookingstatus.filter((room) => {
+                            if (
+                              room.roomType.toLowerCase() !==
+                              roomType.toLowerCase()
+                            )
+                              return false;
+
+                            if (!room.bookingId) return true;
+
+                            const roomIn = new Date(room.checkIn);
+                            const roomOut = new Date(room.checkOut);
+                            const desiredCheckInDate = new Date(checkInDate);
+                            const desiredCheckOutDate = new Date(checkOutDate);
+
+                            const noOverlap =
+                              desiredCheckOutDate <= roomIn ||
+                              desiredCheckInDate >= roomOut;
+
+                            return noOverlap;
+                          });
+
+                        const availableCount = matchingRooms.length;
+                        const maxOptions = Math.min(availableCount, 5); // limit dropdown to max 5
+
+                        return (
+                          <select
+                            className="w-full rounded-md border px-3 py-2"
+                            value={rooms}
+                            onChange={(e) => setRooms(Number(e.target.value))}
+                          >
+                            {Array.from(
+                              { length: maxOptions },
+                              (_, i) => i + 1
+                            ).map((n) => (
+                              <option key={n} value={n}>
+                                {n} {n === 1 ? "Room" : "Rooms"}
+                              </option>
+                            ))}
+                          </select>
+                        );
+                      })()}
                     </div>
 
                     <div>
-                      <label className="mb-1 block font-medium">Special Requests</label>
+                      <label className="mb-1 block font-medium">
+                        Special Requests
+                      </label>
                       <textarea
                         className="min-h-[100px] w-full rounded-md border px-3 py-2"
                         placeholder="Any special requests or preferences..."
@@ -416,27 +587,31 @@ export default function HotelBooking() {
                     <h4 className="font-medium">Price Summary</h4>
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
+                        <span>Room rate ({roomType})</span>
                         <span>
-                          Room rate ({roomType})
-                        </span>
-                        <span>
-                          Rs{getBasePrice()} × {calculateDays()} nights × {rooms} rooms
+                          Rs{getBasePrice()} × {calculateDays()} nights ×{" "}
+                          {rooms} rooms
                         </span>
                       </div>
                       {discount && (
                         <div className="flex justify-between text-green-600">
                           <span>Discount ({discount}%)</span>
                           <span>
-                            -Rs{Math.round(calculateTotalPrice() * (discount / 100))}
+                            -Rs
+                            {Math.round(
+                              calculateTotalPrice() * (discount / 100)
+                            )}
                           </span>
                         </div>
                       )}
                       <div className="flex justify-between">
                         <span>Taxes & fees (12%)</span>
                         <span>
-                          Rs{Math.round(
-                            (discount ? calculateTotalPrice() * (1 - discount / 100) : calculateTotalPrice()) *
-                              0.12,
+                          Rs
+                          {Math.round(
+                            (discount
+                              ? calculateTotalPrice() * (1 - discount / 100)
+                              : calculateTotalPrice()) * 0.12
                           )}
                         </span>
                       </div>
@@ -453,10 +628,14 @@ export default function HotelBooking() {
                       onClick={handleBooking}
                       disabled={!checkRoomAvailability()}
                       className={`w-full rounded-md bg-blue-600 px-4 py-2 text-white ${
-                        !checkRoomAvailability() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
+                        !checkRoomAvailability()
+                          ? "opacity-50 cursor-not-allowed"
+                          : "hover:bg-blue-700"
                       }`}
                     >
-                      {!checkRoomAvailability() ? 'Not Enough Rooms Available' : 'Book Now'}
+                      {!checkRoomAvailability()
+                        ? "Not Enough Rooms Available"
+                        : "Book Now"}
                     </button>
                   </div>
                 </div>
@@ -482,7 +661,10 @@ export default function HotelBooking() {
                           className="rounded bg-green-600 px-6 py-2 font-semibold text-white transition-colors hover:bg-green-700"
                           onClick={() => {
                             loadRazorpay(selectedHotel);
-                            console.log('Selected Hotel Object:', selectedHotel);
+                            console.log(
+                              "Selected Hotel Object:",
+                              selectedHotel
+                            );
                             // alert(`Booking completed! You saved ${discount}% on your stay.`);
                             setSelectedHotel(null);
                             setShowGameSelector(false);
@@ -499,7 +681,8 @@ export default function HotelBooking() {
               <section className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold">
-                    {filteredHotels.length} hotel{filteredHotels.length !== 1 && "s"} found
+                    {filteredHotels.length} hotel
+                    {filteredHotels.length !== 1 && "s"} found
                   </h2>
                   <select className="rounded-md border px-3 py-2">
                     <option value="recommended">Recommended</option>
@@ -511,7 +694,11 @@ export default function HotelBooking() {
 
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {filteredHotels.map((hotel) => (
-                    <HotelCard key={hotel.id} hotel={hotel} onBookNow={() => handleBookNow(hotel.id)} />
+                    <HotelCard
+                      key={hotel.id}
+                      hotel={hotel}
+                      onBookNow={() => handleBookNow(hotel.id)}
+                    />
                   ))}
                 </div>
               </section>
