@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import LanguageChanger from "./LanguageChanger";
 import { useAppContext } from "../context/AppContext";
 import Profile from "../pages/Profile";
+//import HotelApp from "../ownersec/HotelApp";
 
 // Search destinations data (could also be moved to a separate file)
 const searchDestinations = [
@@ -184,6 +185,15 @@ const Navbar = () => {
                 </div>
               )}
             </div>
+            {/* Owner's section button (desktop only) */}
+            <Link
+              to="/hotelApp"
+              className="hidden md:inline-block px-4 py-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold ml-4 hover:from-purple-600 hover:to-pink-600 transition-all shadow-md hover:shadow-pink-500/20"
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              Owner's section
+            </Link>
+            
 
             {/* Auth/Profile */}
             {user == null ? (

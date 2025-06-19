@@ -28,6 +28,7 @@ import TravelDestinationAndaman from "./pages/TravelDestinationAndaman";
 import HiddenGemsBisnapur from "./pages/HiddenGemsBisnapur";
 import HiddenGemsDooars from "./pages/HiddenGemsDooars";
 import Digha from "./pages/Digha";
+import HotelApp from "./ownersec/HotelApp";
  
 const App = () => {
   return (
@@ -59,6 +60,7 @@ const App = () => {
         <Route path="/digha" element={< Digha />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Signup />} />
+        <Route path="/hotelApp" element={<HotelApp />} />
       </Routes>
       <Testimonials />
       <Footer />
