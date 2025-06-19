@@ -6,7 +6,8 @@ const userSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        required: true
+        required: true,
+        unique: true 
     },
     password: {
         type: String,
@@ -19,7 +20,8 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ["Admin", "User"]
+        enum: ["Admin", "User" , "Owner" , "Vendors"],
+        default : "User"
     },
     token: {
         type: String
@@ -35,7 +37,6 @@ const userSchema = new mongoose.Schema({
     ],
     points:{
         type:Number,
-        required:true
     } 
 })
 const User = mongoose.model("user", userSchema);
